@@ -233,7 +233,7 @@ body { min-height: 100vh; }
 
     <h3>Aktualitet (EWMA &lambda;)</h3>
     <div class="ewma-label"><span>Senaste råder</span><span>Alla år lika</span></div>
-    <input type="range" class="weight-slider" id="ewmaSlider" min="30" max="100" value="70" step="5" oninput="onEwmaChange(this.value)">
+    <input type="range" class="weight-slider" id="ewmaSlider" min="30" max="100" value="60" step="5" oninput="onEwmaChange(this.value)">
     <div class="ewma-val" id="ewmaVal">&lambda; = 0.70</div>
     <div class="year-weights" id="yearWeights"></div>
 
@@ -356,7 +356,7 @@ const PRESETS = {
 const state = {
   mode: "linear",
   weights: Object.assign({}, PRESETS["Jämn"]),
-  lambda: 0.70,
+  lambda: 0.60,
   startYear: ALL_YEARS[0],
   tierFilter: "all",
   kommunFilter: "all",
@@ -819,11 +819,6 @@ function buildPresets(container) {
     btn.onclick = () => applyPreset(name);
     container.appendChild(btn);
   }
-  const btn = document.createElement("button");
-  btn.className = "preset-btn";
-  btn.textContent = "Återställ";
-  btn.onclick = resetAll;
-  container.appendChild(btn);
 }
 
 function onWeightDragStart(q) {
@@ -879,7 +874,6 @@ function updateWeightUI() {
 function updatePresetHighlight() {
   document.querySelectorAll(".preset-btn").forEach(btn => {
     const name = btn.textContent;
-    if (name === "Återställ") { btn.classList.remove("active"); return; }
     const preset = PRESETS[name];
     if (preset) {
       const match = QUESTIONS.every(q => Math.abs(state.weights[q] - preset[q]) < 0.05);
@@ -902,7 +896,7 @@ function applyPreset(name) {
 function resetAll() {
   state.mode = "linear";
   state.weights = Object.assign({}, PRESETS["Jämn"]);
-  state.lambda = 0.70;
+  state.lambda = 0.60;
   state.startYear = ALL_YEARS[0];
   state.activePreset = "Jämn";
   state.kommunFilter = "all";
@@ -1023,7 +1017,7 @@ function toggleSettings() {
     html += '<button class="preset-btn' + (state.activePreset === name ? " active" : "") +
       '" onclick="applyPreset(\'' + name + '\')">' + name + "</button>";
   }
-  html += '<button class="preset-btn" onclick="resetAll()">Återställ</button></div>';
+  html += '</div>';
   html += '<h4 style="font-size:0.8rem;color:#666;margin-bottom:0.4rem">Aktualitet (EWMA &lambda;)</h4>';
   html += '<input type="range" class="weight-slider" min="30" max="100" value="' + Math.round(state.lambda*100) + '" step="5" oninput="onEwmaChange(this.value)">';
   html += '<div class="ewma-val">&lambda; = ' + state.lambda.toFixed(2) + "</div>";
