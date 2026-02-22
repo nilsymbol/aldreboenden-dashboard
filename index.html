@@ -354,6 +354,7 @@ function makePreset(domainWeights) {
   return w;
 }
 const PRESETS = {
+  "Rekommenderad": (() => { const w = {}; const rest = 65 / (QUESTIONS.length - 1); for (const q of QUESTIONS) w[q] = q === "nöjd_sammantaget" ? 35 : rest; return w; })(),
   "Jämn": (() => { const w = {}; for (const q of QUESTIONS) w[q] = EQ; return w; })(),
   "Domänbalans": makePreset({personal:20,mat:20,"miljö":20,aktiviteter:20,"nöjdhet":20}),
   "Fokus personal": makePreset({personal:50,mat:10,"miljö":15,aktiviteter:10,"nöjdhet":15}),
@@ -366,7 +367,7 @@ const PRESETS = {
 // ═══════════════════════════════════════════════════════════════════
 const state = {
   mode: "linear",
-  weights: Object.assign({}, PRESETS["Jämn"]),
+  weights: Object.assign({}, PRESETS["Rekommenderad"]),
   lambda: 0.60,
   startYear: ALL_YEARS[0],
   tierFilter: "all",
@@ -377,7 +378,7 @@ const state = {
   sortCol: "rank",
   sortAsc: true,
   expandedId: null,
-  activePreset: "Jämn",
+  activePreset: "Rekommenderad",
 };
 
 let currentResults = [];
@@ -934,7 +935,7 @@ function applyPreset(name) {
 
 function resetAll() {
   state.mode = "linear";
-  state.weights = Object.assign({}, PRESETS["Jämn"]);
+  state.weights = Object.assign({}, PRESETS["Rekommenderad"]);
   state.lambda = 0.60;
   state.startYear = ALL_YEARS[0];
   state.activePreset = "Jämn";
