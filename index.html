@@ -19,7 +19,7 @@ body { min-height: 100vh; }
   --c-behovs: #c62828; --c-behovs-bg: #ffebee; --c-behovs-text: #b71c1c;
   --sidebar-w: 300px;
   --header-h: 52px;
-  --filter-h: 92px;
+  --filter-h: 68px;
 }
 
 /* ═══ HEADER ═══ */
@@ -223,14 +223,6 @@ body { min-height: 100vh; }
     <span class="home-count" id="homeCount"></span>
   </div>
   <div class="filter-row" id="kommunRow"></div>
-  <div class="filter-row">
-    <span style="font-size:0.72rem;color:#999;font-weight:600;flex-shrink:0">Platser:</span>
-    <button class="kommun-pill active" data-platser="all" onclick="setPlatserFilter('all')">Alla</button>
-    <button class="kommun-pill" data-platser="0-29" onclick="setPlatserFilter('0-29')">&lt;30</button>
-    <button class="kommun-pill" data-platser="30-59" onclick="setPlatserFilter('30-59')">30–59</button>
-    <button class="kommun-pill" data-platser="60-99" onclick="setPlatserFilter('60-99')">60–99</button>
-    <button class="kommun-pill" data-platser="100-999" onclick="setPlatserFilter('100-999')">100+</button>
-  </div>
 </div>
 
 <!-- ═══ MAIN LAYOUT ═══ -->
@@ -252,6 +244,13 @@ body { min-height: 100vh; }
     <input type="range" class="weight-slider" id="startYearSlider" min="0" max="6" value="0" step="1" oninput="onStartYearChange(this.value)">
     <div class="start-year-val" id="startYearVal">2018</div>
     <div class="summary-text" id="summaryText"></div>
+
+    <h3>Antal platser</h3>
+    <div class="ewma-label"><span>Min</span><span id="platserMinVal">0</span></div>
+    <input type="range" class="weight-slider" id="platserMinSlider" min="0" max="130" value="0" step="5" oninput="onPlatserChange()">
+    <div class="ewma-label" style="margin-top:0.4rem"><span>Max</span><span id="platserMaxVal">130</span></div>
+    <input type="range" class="weight-slider" id="platserMaxSlider" min="0" max="130" value="130" step="5" oninput="onPlatserChange()">
+    <div class="summary-text" id="platserSummary"></div>
   </aside>
 
   <!-- TABLE -->
@@ -372,7 +371,8 @@ const state = {
   startYear: ALL_YEARS[0],
   tierFilter: "all",
   kommunFilter: "all",
-  platserFilter: "all",
+  platserMin: 0,
+  platserMax: 130,
   searchQuery: "",
   sortCol: "rank",
   sortAsc: true,
@@ -618,9 +618,8 @@ function renderTable(results, animate) {
   let filtered = results;
   if (filter !== "all") filtered = filtered.filter(r => r.tier === filter);
   if (state.kommunFilter !== "all") filtered = filtered.filter(r => r.home.kommun === state.kommunFilter);
-  if (state.platserFilter !== "all") {
-    const [lo, hi] = state.platserFilter.split("-").map(Number);
-    filtered = filtered.filter(r => r.home.platser != null && r.home.platser >= lo && r.home.platser <= hi);
+  if (state.platserMin > 0 || state.platserMax < 130) {
+    filtered = filtered.filter(r => r.home.platser != null && r.home.platser >= state.platserMin && r.home.platser <= state.platserMax);
   }
   if (query) filtered = filtered.filter(r =>
     r.home.name.toLowerCase().includes(query) ||
@@ -940,11 +939,16 @@ function resetAll() {
   state.startYear = ALL_YEARS[0];
   state.activePreset = "Jämn";
   state.kommunFilter = "all";
-  state.platserFilter = "all";
+  state.platserMin = 0;
+  state.platserMax = 130;
   dragOrigin = null;
   document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === "linear"));
   document.querySelectorAll("[data-kommun]").forEach(b => b.classList.toggle("active", b.dataset.kommun === "all"));
-  document.querySelectorAll("[data-platser]").forEach(b => b.classList.toggle("active", b.dataset.platser === "all"));
+  document.getElementById("platserMinSlider").value = 0;
+  document.getElementById("platserMaxSlider").value = 130;
+  document.getElementById("platserMinVal").textContent = "0";
+  document.getElementById("platserMaxVal").textContent = "130";
+  document.getElementById("platserSummary").textContent = "";
   document.getElementById("ewmaSlider").value = 70;
   document.getElementById("startYearSlider").value = 0;
   updateWeightUI();
@@ -1018,9 +1022,22 @@ function setKommunFilter(kommun) {
   document.querySelectorAll("[data-kommun]").forEach(b => b.classList.toggle("active", b.dataset.kommun === kommun));
   renderTable(currentResults, false);
 }
-function setPlatserFilter(range) {
-  state.platserFilter = range;
-  document.querySelectorAll("[data-platser]").forEach(b => b.classList.toggle("active", b.dataset.platser === range));
+function onPlatserChange() {
+  const minSliders = document.querySelectorAll("#platserMinSlider");
+  const maxSliders = document.querySelectorAll("#platserMaxSlider");
+  let lo = parseInt(minSliders[0].value);
+  let hi = parseInt(maxSliders[0].value);
+  if (lo > hi) { const t = lo; lo = hi; hi = t; }
+  state.platserMin = lo;
+  state.platserMax = hi;
+  // Sync all instances (sidebar + bottom sheet)
+  minSliders.forEach(s => s.value = lo);
+  maxSliders.forEach(s => s.value = hi);
+  document.querySelectorAll("#platserMinVal").forEach(e => e.textContent = lo);
+  document.querySelectorAll("#platserMaxVal").forEach(e => e.textContent = hi >= 130 ? "130+" : hi);
+  const count = HOMES.filter(h => h.platser != null && h.platser >= lo && h.platser <= hi).length;
+  const txt = lo === 0 && hi >= 130 ? "" : count + " boenden i intervallet " + lo + "–" + (hi >= 130 ? "130+" : hi) + " platser";
+  document.querySelectorAll("#platserSummary").forEach(e => e.textContent = txt);
   renderTable(currentResults, false);
 }
 function onSearch() {
@@ -1072,6 +1089,11 @@ function toggleSettings() {
   const idx = ALL_YEARS.indexOf(state.startYear);
   html += '<input type="range" class="weight-slider" min="0" max="' + (ALL_YEARS.length-1) + '" value="' + (idx>=0?idx:0) + '" step="1" oninput="onStartYearChange(this.value)">';
   html += '<div class="start-year-val">' + state.startYear + "</div>";
+  html += '<h4 style="font-size:0.8rem;color:#666;margin-top:0.75rem;margin-bottom:0.4rem">Antal platser</h4>';
+  html += '<div class="ewma-label"><span>Min</span><span>' + state.platserMin + '</span></div>';
+  html += '<input type="range" class="weight-slider" min="0" max="130" value="' + state.platserMin + '" step="5" oninput="onPlatserChange()" id="platserMinSlider">';
+  html += '<div class="ewma-label" style="margin-top:0.4rem"><span>Max</span><span>' + (state.platserMax >= 130 ? "130+" : state.platserMax) + '</span></div>';
+  html += '<input type="range" class="weight-slider" min="0" max="130" value="' + state.platserMax + '" step="5" oninput="onPlatserChange()" id="platserMaxSlider">';
 
   document.getElementById("bsContent").innerHTML = html;
   overlay.classList.add("visible");
