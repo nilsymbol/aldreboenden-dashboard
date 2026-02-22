@@ -19,7 +19,7 @@ body { min-height: 100vh; }
   --c-behovs: #c62828; --c-behovs-bg: #ffebee; --c-behovs-text: #b71c1c;
   --sidebar-w: 300px;
   --header-h: 52px;
-  --filter-h: 68px;
+  --filter-h: 92px;
 }
 
 /* ═══ HEADER ═══ */
@@ -131,6 +131,7 @@ body { min-height: 100vh; }
 .col-lcb { font-size: 0.8rem; color: #888; text-align: right; }
 .col-trend { text-align: center; font-size: 1rem; }
 .col-tier { white-space: nowrap; }
+.col-platser { font-size: 0.8rem; color: #666; text-align: right; }
 .col-conf { font-size: 0.75rem; color: #888; }
 .col-spark { width: 80px; padding: 0.2rem !important; }
 .col-spark canvas { display: block; }
@@ -222,6 +223,14 @@ body { min-height: 100vh; }
     <span class="home-count" id="homeCount"></span>
   </div>
   <div class="filter-row" id="kommunRow"></div>
+  <div class="filter-row">
+    <span style="font-size:0.72rem;color:#999;font-weight:600;flex-shrink:0">Platser:</span>
+    <button class="kommun-pill active" data-platser="all" onclick="setPlatserFilter('all')">Alla</button>
+    <button class="kommun-pill" data-platser="0-29" onclick="setPlatserFilter('0-29')">&lt;30</button>
+    <button class="kommun-pill" data-platser="30-59" onclick="setPlatserFilter('30-59')">30–59</button>
+    <button class="kommun-pill" data-platser="60-99" onclick="setPlatserFilter('60-99')">60–99</button>
+    <button class="kommun-pill" data-platser="100-999" onclick="setPlatserFilter('100-999')">100+</button>
+  </div>
 </div>
 
 <!-- ═══ MAIN LAYOUT ═══ -->
@@ -255,6 +264,7 @@ body { min-height: 100vh; }
           <th class="col-kommun" onclick="sortBy('kommun')">Kommun <span class="sort-arrow"></span></th>
           <th class="col-stadsdel" onclick="sortBy('stadsdel')">Stadsdel <span class="sort-arrow"></span></th>
           <th class="col-drift" onclick="sortBy('driftform')">Drift <span class="sort-arrow"></span></th>
+          <th class="col-platser" onclick="sortBy('platser')">Platser <span class="sort-arrow"></span></th>
           <th class="col-score" onclick="sortBy('score')">Score <span class="sort-arrow"></span></th>
           <th class="col-lcb" onclick="sortBy('lcb')">LCB <span class="sort-arrow"></span></th>
           <th class="col-spark">Trend</th>
@@ -362,6 +372,7 @@ const state = {
   startYear: ALL_YEARS[0],
   tierFilter: "all",
   kommunFilter: "all",
+  platserFilter: "all",
   searchQuery: "",
   sortCol: "rank",
   sortAsc: true,
@@ -607,6 +618,10 @@ function renderTable(results, animate) {
   let filtered = results;
   if (filter !== "all") filtered = filtered.filter(r => r.tier === filter);
   if (state.kommunFilter !== "all") filtered = filtered.filter(r => r.home.kommun === state.kommunFilter);
+  if (state.platserFilter !== "all") {
+    const [lo, hi] = state.platserFilter.split("-").map(Number);
+    filtered = filtered.filter(r => r.home.platser != null && r.home.platser >= lo && r.home.platser <= hi);
+  }
   if (query) filtered = filtered.filter(r =>
     r.home.name.toLowerCase().includes(query) ||
     r.home.kommun.toLowerCase().includes(query) ||
@@ -644,6 +659,7 @@ function renderTable(results, animate) {
     html += '<td class="col-kommun">' + escHtml(r.home.kommun) + "</td>";
     html += '<td class="col-stadsdel">' + escHtml(r.home.stadsdel) + "</td>";
     html += '<td class="col-drift">' + escHtml(r.home.driftform) + "</td>";
+    html += '<td class="col-platser">' + (r.home.platser || "–") + "</td>";
     html += '<td class="col-score" style="color:' + tierColor + '">' + r.displayScore.toFixed(1) + "</td>";
     html += '<td class="col-lcb">' + r.displayLcb.toFixed(1) + "</td>";
     html += '<td class="col-spark"><canvas width="80" height="24" data-home="' + escHtml(r.home.id) + '"></canvas></td>';
@@ -651,7 +667,7 @@ function renderTable(results, animate) {
     html += '<td class="col-tier"><span class="tier-badge" style="background:' + tierColor + '">' + escHtml(tierShort(r.tier)) + "</span></td>";
     html += '<td class="col-conf">' + escHtml(r.conf) + "</td>";
     html += "</tr>";
-    if (expanded) html += '<tr class="detail-row"><td colspan="11">' + renderDetailPanel(r) + "</td></tr>";
+    if (expanded) html += '<tr class="detail-row"><td colspan="12">' + renderDetailPanel(r) + "</td></tr>";
   }
   tbody.innerHTML = html;
   drawAllSparklines(filtered);
@@ -688,6 +704,7 @@ function applySorting(results) {
       case "kommun": va = a.home.kommun; vb = b.home.kommun; break;
       case "stadsdel": va = a.home.stadsdel; vb = b.home.stadsdel; break;
       case "driftform": va = a.home.driftform; vb = b.home.driftform; break;
+      case "platser": va = a.home.platser || 0; vb = b.home.platser || 0; break;
       case "score": va = a.displayScore; vb = b.displayScore; break;
       case "lcb": va = a.displayLcb; vb = b.displayLcb; break;
       case "tier": va = tierOrder(a.tier); vb = tierOrder(b.tier); break;
@@ -923,9 +940,11 @@ function resetAll() {
   state.startYear = ALL_YEARS[0];
   state.activePreset = "Jämn";
   state.kommunFilter = "all";
+  state.platserFilter = "all";
   dragOrigin = null;
   document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === "linear"));
-  document.querySelectorAll(".kommun-pill").forEach(b => b.classList.toggle("active", b.dataset.kommun === "all"));
+  document.querySelectorAll("[data-kommun]").forEach(b => b.classList.toggle("active", b.dataset.kommun === "all"));
+  document.querySelectorAll("[data-platser]").forEach(b => b.classList.toggle("active", b.dataset.platser === "all"));
   document.getElementById("ewmaSlider").value = 70;
   document.getElementById("startYearSlider").value = 0;
   updateWeightUI();
@@ -996,7 +1015,12 @@ function buildKommunPills() {
 }
 function setKommunFilter(kommun) {
   state.kommunFilter = kommun;
-  document.querySelectorAll(".kommun-pill").forEach(b => b.classList.toggle("active", b.dataset.kommun === kommun));
+  document.querySelectorAll("[data-kommun]").forEach(b => b.classList.toggle("active", b.dataset.kommun === kommun));
+  renderTable(currentResults, false);
+}
+function setPlatserFilter(range) {
+  state.platserFilter = range;
+  document.querySelectorAll("[data-platser]").forEach(b => b.classList.toggle("active", b.dataset.platser === range));
   renderTable(currentResults, false);
 }
 function onSearch() {
