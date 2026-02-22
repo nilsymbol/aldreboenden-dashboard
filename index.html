@@ -531,6 +531,15 @@ function recalculate() {
       }
       domEwma[d] = dWS > 0 ? dVS / dWS : 0;
     }
+    const qEwma = {};
+    for (const q of QUESTIONS) {
+      const qVals = validYears.map(y => zScores[home.id][y]?.[q]);
+      let qWS = 0, qVS = 0;
+      for (let i = 0; i < validYears.length; i++) {
+        if (qVals[i] != null) { qVS += weights[i] * qVals[i]; qWS += weights[i]; }
+      }
+      qEwma[q] = qWS > 0 ? qVS / qWS : null;
+    }
     const yearly = {};
     for (const y of validYears) yearly[y] = zScores[home.id][y]._comp;
     const latestSvar = home.data[String(latestYr)]?.svar || "";
@@ -538,7 +547,7 @@ function recalculate() {
     if (nEff >= 3.0 && latestSvar === "\u226530") conf = "Hög";
     else if (nEff >= 2.0 || latestSvar === "\u226530") conf = "Medium";
     else conf = "Låg";
-    results.push({home, ewma, se: totalSE, lcb, nEff, trend, domEwma, yearly, nYears: validYears.length, latestYr, latestSvar, conf});
+    results.push({home, ewma, se: totalSE, lcb, nEff, trend, domEwma, qEwma, yearly, nYears: validYears.length, latestYr, latestSvar, conf});
   }
 
   results.sort((a, b) => b.lcb - a.lcb);
@@ -562,6 +571,12 @@ function recalculate() {
       const dM = qs.reduce((a, q) => a + refStats[q].mean, 0) / qs.length;
       const dS = qs.reduce((a, q) => a + refStats[q].std, 0) / qs.length;
       r.domainDisplay[d] = r.domEwma[d] * dS + dM;
+    }
+    r.questionDisplay = {};
+    for (const q of QUESTIONS) {
+      if (r.qEwma[q] != null) {
+        r.questionDisplay[q] = r.qEwma[q] * refStats[q].std + refStats[q].mean;
+      }
     }
     r.yearlyDisplay = {};
     for (const [y, z] of Object.entries(r.yearly)) {
@@ -742,12 +757,17 @@ function renderDetailPanel(r) {
   let html = '<div class="detail-panel">';
   html += '<div class="detail-chart"><h4>Utveckling över tid</h4><canvas id="chartTimeSeries"></canvas></div>';
   html += '<div class="detail-chart"><h4>Domänprofil</h4><canvas id="chartRadar"></canvas></div>';
-  html += '<div class="detail-chart"><h4>Domänpoäng</h4><div class="domain-bars">';
+  html += '<div class="detail-chart"><h4>Frågepoäng</h4><div class="domain-bars">';
   for (const d of DOMAIN_ORDER) {
-    const val = r.domainDisplay[d], pct = Math.max(0,Math.min(100,val)), color = TIER_COLORS_RAW[r.tier];
-    html += '<div class="domain-bar-row"><span class="domain-bar-label">'+DOMAIN_NAMES[d]+'</span>';
-    html += '<div class="domain-bar-track"><div class="domain-bar-fill" style="width:'+pct.toFixed(0)+'%;background:'+color+'"></div></div>';
-    html += '<span class="domain-bar-val" style="color:'+color+'">'+val.toFixed(1)+'</span></div>';
+    html += '<div style="font-size:0.7rem;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.03em;margin-top:0.5rem;margin-bottom:0.2rem">' + DOMAIN_NAMES[d] + '</div>';
+    for (const q of DOMAINS[d]) {
+      const val = r.questionDisplay[q];
+      if (val == null) continue;
+      const pct = Math.max(0,Math.min(100,val)), color = TIER_COLORS_RAW[r.tier];
+      html += '<div class="domain-bar-row"><span class="domain-bar-label">'+Q_NAMES[q]+'</span>';
+      html += '<div class="domain-bar-track"><div class="domain-bar-fill" style="width:'+pct.toFixed(0)+'%;background:'+color+'"></div></div>';
+      html += '<span class="domain-bar-val" style="color:'+color+'">'+val.toFixed(1)+'</span></div>';
+    }
   }
   html += "</div></div>";
   html += '<div class="detail-chart"><h4>Information</h4><div class="detail-meta">';
