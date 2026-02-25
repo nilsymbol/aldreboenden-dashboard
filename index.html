@@ -155,10 +155,12 @@ body { min-height: 100vh; }
 .domain-bars { margin-top: 0.5rem; }
 .domain-bar-row { display: flex; align-items: center; margin-bottom: 0.35rem; font-size: 0.78rem; }
 .domain-bar-label { width: 130px; color: #555; flex-shrink: 0; }
-.domain-bar-track { flex: 1; height: 14px; background: #f0f0f0; border-radius: 7px; overflow: hidden; margin: 0 0.5rem; position: relative; }
-.domain-bar-fill { height: 100%; border-radius: 7px; transition: width 0.4s; }
-.domain-bar-median { position: absolute; top: 0; bottom: 0; width: 2px; background: #888; opacity: 0.6; transform: translateX(-1px); pointer-events: none; }
-.domain-bar-val { width: 36px; text-align: right; font-weight: 600; color: #444; }
+.domain-bar-track { flex: 1; height: 14px; background: #f0f0f0; border-radius: 7px; margin: 0 0.5rem; position: relative; overflow: visible; }
+.domain-bar-fill { height: 100%; border-radius: 7px; transition: width 0.4s; position: relative; z-index: 1; }
+.domain-bar-whisker { position: absolute; top: 50%; height: 1px; background: #999; z-index: 0; }
+.domain-bar-box { position: absolute; top: 2px; bottom: 2px; border: 1.5px solid rgba(0,0,0,0.25); border-radius: 2px; z-index: 2; pointer-events: none; }
+.domain-bar-median-line { position: absolute; top: 1px; bottom: 1px; width: 2px; background: rgba(0,0,0,0.45); z-index: 3; transform: translateX(-1px); pointer-events: none; }
+.domain-bar-val { width: 36px; text-align: right; font-weight: 600; }
 
 /* ═══ BOTTOM SHEET (iPad) ═══ */
 .bottom-sheet-overlay {
@@ -415,11 +417,19 @@ const state = {
 };
 
 let currentResults = [];
-let currentQMedians = {}; // per-question median value
+let currentQStats = {}; // per-question {min, p25, p50, p75, max}
 let recalcTimer = null;
 let dragOrigin = null; // {q, weights} for even slider redistribution
 
-const BAR_COLOR = "#5c9eed"; // neutral blue for all bars
+const Q_COLORS = ["#e53935","#ffa726","#9ccc65","#2e7d32"];
+function qColor(val, q) {
+  const s = currentQStats[q];
+  if (!s || val == null) return "#9e9e9e";
+  if (val >= s.p75) return Q_COLORS[3];
+  if (val >= s.p50) return Q_COLORS[2];
+  if (val >= s.p25) return Q_COLORS[1];
+  return Q_COLORS[0];
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // RANKING ENGINE (port of rank_boenden.py)
@@ -633,13 +643,15 @@ function recalculate() {
       r.yearlyDisplay[y] = z * avgStd + avgMean;
     }
   }
-  // Compute per-question medians for reference markers
-  const qm = {};
+  // Compute per-question distribution stats for box-and-whisker
+  const qs = {};
   for (const q of QUESTIONS) {
     const vals = results.map(r => r.questionDisplay[q]).filter(v => v != null).sort((a,b) => a-b);
-    if (vals.length > 0) qm[q] = percentile(vals, 0.50);
+    if (vals.length > 0) {
+      qs[q] = { min: vals[0], p25: percentile(vals, 0.25), p50: percentile(vals, 0.50), p75: percentile(vals, 0.75), max: vals[vals.length-1] };
+    }
   }
-  currentQMedians = qm;
+  currentQStats = qs;
   return results;
 }
 
@@ -828,15 +840,20 @@ function renderDetailPanel(r) {
     for (const q of domQs) {
       const val = r.questionDisplay[q];
       if (val == null) continue;
-      const pct = Math.max(0,Math.min(100,val));
-      const med = currentQMedians[q];
-      const medPct = med != null ? Math.max(0,Math.min(100,med)).toFixed(0) : null;
+      const pct = Math.max(0,Math.min(100,val)), color = qColor(val, q);
+      const s = currentQStats[q];
       html += '<div class="domain-bar-row"><span class="domain-bar-label">'+Q_NAMES[q]+'</span>';
       html += '<div class="domain-bar-track">';
-      html += '<div class="domain-bar-fill" style="width:'+pct.toFixed(0)+'%;background:'+BAR_COLOR+'"></div>';
-      if (medPct != null) html += '<div class="domain-bar-median" style="left:'+medPct+'%" title="Median: '+med.toFixed(1)+'%"></div>';
+      if (s) {
+        const cl = v => Math.max(0,Math.min(100,v));
+        const mn = cl(s.min), mx = cl(s.max), b25 = cl(s.p25), b75 = cl(s.p75), med = cl(s.p50);
+        html += '<div class="domain-bar-whisker" style="left:'+mn.toFixed(1)+'%;width:'+(mx-mn).toFixed(1)+'%"></div>';
+        html += '<div class="domain-bar-box" style="left:'+b25.toFixed(1)+'%;width:'+(b75-b25).toFixed(1)+'%"></div>';
+        html += '<div class="domain-bar-median-line" style="left:'+med.toFixed(1)+'%" title="Median: '+s.p50.toFixed(1)+'%"></div>';
+      }
+      html += '<div class="domain-bar-fill" style="width:'+pct.toFixed(0)+'%;background:'+color+'"></div>';
       html += '</div>';
-      html += '<span class="domain-bar-val">'+val.toFixed(1)+'</span></div>';
+      html += '<span class="domain-bar-val" style="color:'+color+'">'+val.toFixed(1)+'</span></div>';
     }
   }
   html += "</div></div>";
