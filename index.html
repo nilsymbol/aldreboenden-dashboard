@@ -156,10 +156,10 @@ body { min-height: 100vh; }
 .domain-bar-row { display: flex; align-items: center; margin-bottom: 0.35rem; font-size: 0.78rem; }
 .domain-bar-label { width: 130px; color: #555; flex-shrink: 0; }
 .domain-bar-track { flex: 1; height: 14px; background: #f0f0f0; border-radius: 7px; margin: 0 0.5rem; position: relative; overflow: visible; }
-.domain-bar-fill { height: 100%; border-radius: 7px; transition: width 0.4s; position: relative; z-index: 1; }
-.domain-bar-whisker { position: absolute; top: 50%; height: 1px; background: #999; z-index: 0; }
-.domain-bar-box { position: absolute; top: 2px; bottom: 2px; border: 1.5px solid rgba(0,0,0,0.25); border-radius: 2px; z-index: 2; pointer-events: none; }
-.domain-bar-median-line { position: absolute; top: 1px; bottom: 1px; width: 2px; background: rgba(0,0,0,0.45); z-index: 3; transform: translateX(-1px); pointer-events: none; }
+.domain-bar-fill { height: 100%; border-radius: 7px; transition: width 0.4s; opacity: 0.7; }
+.domain-bar-whisker { position: absolute; top: 50%; height: 1px; background: #999; z-index: 2; }
+.domain-bar-box { position: absolute; top: 2px; bottom: 2px; border: 1.5px solid rgba(0,0,0,0.3); border-radius: 2px; z-index: 3; pointer-events: none; }
+.domain-bar-median-line { position: absolute; top: 1px; bottom: 1px; width: 2px; background: rgba(0,0,0,0.5); z-index: 4; transform: translateX(-1px); pointer-events: none; }
 .domain-bar-val { width: 36px; text-align: right; font-weight: 600; }
 
 /* ═══ BOTTOM SHEET (iPad) ═══ */
