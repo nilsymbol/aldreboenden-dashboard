@@ -155,9 +155,10 @@ body { min-height: 100vh; }
 .domain-bars { margin-top: 0.5rem; }
 .domain-bar-row { display: flex; align-items: center; margin-bottom: 0.35rem; font-size: 0.78rem; }
 .domain-bar-label { width: 130px; color: #555; flex-shrink: 0; }
-.domain-bar-track { flex: 1; height: 14px; background: #f0f0f0; border-radius: 7px; overflow: hidden; margin: 0 0.5rem; }
+.domain-bar-track { flex: 1; height: 14px; background: #f0f0f0; border-radius: 7px; overflow: hidden; margin: 0 0.5rem; position: relative; }
 .domain-bar-fill { height: 100%; border-radius: 7px; transition: width 0.4s; }
-.domain-bar-val { width: 36px; text-align: right; font-weight: 600; }
+.domain-bar-median { position: absolute; top: 0; bottom: 0; width: 2px; background: #888; opacity: 0.6; transform: translateX(-1px); pointer-events: none; }
+.domain-bar-val { width: 36px; text-align: right; font-weight: 600; color: #444; }
 
 /* ═══ BOTTOM SHEET (iPad) ═══ */
 .bottom-sheet-overlay {
@@ -414,20 +415,11 @@ const state = {
 };
 
 let currentResults = [];
-let currentQPercentiles = {}; // per-question {p25, p50, p75}
+let currentQMedians = {}; // per-question median value
 let recalcTimer = null;
 let dragOrigin = null; // {q, weights} for even slider redistribution
 
-// Quartile colors: green → light green → orange → red
-const Q_COLORS = ["#e53935","#ffa726","#9ccc65","#2e7d32"];
-function qColor(val, q) {
-  const p = currentQPercentiles[q];
-  if (!p || val == null) return "#9e9e9e";
-  if (val >= p.p75) return Q_COLORS[3];
-  if (val >= p.p50) return Q_COLORS[2];
-  if (val >= p.p25) return Q_COLORS[1];
-  return Q_COLORS[0];
-}
+const BAR_COLOR = "#5c9eed"; // neutral blue for all bars
 
 // ═══════════════════════════════════════════════════════════════════
 // RANKING ENGINE (port of rank_boenden.py)
@@ -641,15 +633,13 @@ function recalculate() {
       r.yearlyDisplay[y] = z * avgStd + avgMean;
     }
   }
-  // Compute per-question percentiles for quartile coloring
-  const qp = {};
+  // Compute per-question medians for reference markers
+  const qm = {};
   for (const q of QUESTIONS) {
     const vals = results.map(r => r.questionDisplay[q]).filter(v => v != null).sort((a,b) => a-b);
-    if (vals.length > 0) {
-      qp[q] = { p25: percentile(vals, 0.25), p50: percentile(vals, 0.50), p75: percentile(vals, 0.75) };
-    }
+    if (vals.length > 0) qm[q] = percentile(vals, 0.50);
   }
-  currentQPercentiles = qp;
+  currentQMedians = qm;
   return results;
 }
 
@@ -838,10 +828,15 @@ function renderDetailPanel(r) {
     for (const q of domQs) {
       const val = r.questionDisplay[q];
       if (val == null) continue;
-      const pct = Math.max(0,Math.min(100,val)), color = qColor(val, q);
+      const pct = Math.max(0,Math.min(100,val));
+      const med = currentQMedians[q];
+      const medPct = med != null ? Math.max(0,Math.min(100,med)).toFixed(0) : null;
       html += '<div class="domain-bar-row"><span class="domain-bar-label">'+Q_NAMES[q]+'</span>';
-      html += '<div class="domain-bar-track"><div class="domain-bar-fill" style="width:'+pct.toFixed(0)+'%;background:'+color+'"></div></div>';
-      html += '<span class="domain-bar-val" style="color:'+color+'">'+val.toFixed(1)+'</span></div>';
+      html += '<div class="domain-bar-track">';
+      html += '<div class="domain-bar-fill" style="width:'+pct.toFixed(0)+'%;background:'+BAR_COLOR+'"></div>';
+      if (medPct != null) html += '<div class="domain-bar-median" style="left:'+medPct+'%" title="Median: '+med.toFixed(1)+'%"></div>';
+      html += '</div>';
+      html += '<span class="domain-bar-val">'+val.toFixed(1)+'</span></div>';
     }
   }
   html += "</div></div>";
