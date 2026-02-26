@@ -329,13 +329,12 @@ const DOMAINS = {
   "vård":["sjuksköterska","läkare"],
   "hälsa":["hälsa","ängslan_oro","ensamhet"]
 };
-const DOMAIN_ORDER = ["personal","mat","miljö","aktiviteter","nöjdhet","inflytande","vård"];
-const HALSA_DOMAIN = "hälsa"; // context-only, 0% default weight
+const DOMAIN_ORDER = ["personal","mat","miljö","aktiviteter","nöjdhet","inflytande","vård","hälsa"];
 const DOMAIN_NAMES = {
   "personal":"Personal & bemötande","mat":"Mat & måltider",
   "miljö":"Miljö & trivsel","aktiviteter":"Aktiviteter","nöjdhet":"Nöjdhet",
   "inflytande":"Inflytande & information","vård":"Vård & kompetens",
-  "hälsa":"Hälsa (kontext)"
+  "hälsa":"Hälsa"
 };
 const Q_NAMES = {
   "bemötande":"Bemötande","personal_tid":"Personal har tid","hänsyn_önskemål":"Hänsyn till önskemål",
@@ -373,10 +372,7 @@ const TIER_BG = {"Utmärkt":"var(--c-utmarkt-bg)","Bra":"var(--c-bra-bg)","Godk�
 // ═══════════════════════════════════════════════════════════════════
 // PRESETS (per-question weights, sum to 100)
 // ═══════════════════════════════════════════════════════════════════
-// Scored questions = QUESTIONS minus hälsa domain (hälsa has 0% default weight)
-const HALSA_QS = DOMAINS[HALSA_DOMAIN];
-const SCORED_QS = QUESTIONS.filter(q => !HALSA_QS.includes(q));
-const EQ = 100 / SCORED_QS.length;
+const EQ = 100 / QUESTIONS.length;
 function makePreset(domainWeights) {
   const w = {};
   for (const [d, qs] of Object.entries(DOMAINS)) {
@@ -386,15 +382,17 @@ function makePreset(domainWeights) {
   }
   return w;
 }
+const ND = DOMAIN_ORDER.length; // 8 domains
 const PRESETS = {
-  "Rekommenderad": (() => { const w = {}; const rest = 65 / (SCORED_QS.length - 1); for (const q of QUESTIONS) { if (HALSA_QS.includes(q)) w[q] = 0; else w[q] = q === "nöjd_sammantaget" ? 35 : rest; } return w; })(),
-  "Jämn": (() => { const w = {}; for (const q of QUESTIONS) w[q] = HALSA_QS.includes(q) ? 0 : EQ; return w; })(),
-  "Domänbalans": makePreset({personal:100/7,mat:100/7,"miljö":100/7,aktiviteter:100/7,"nöjdhet":100/7,inflytande:100/7,"vård":100/7,"hälsa":0}),
-  "Fokus personal": makePreset({personal:45,mat:8,"miljö":10,aktiviteter:8,"nöjdhet":12,inflytande:9,"vård":8,"hälsa":0}),
-  "Fokus mat": makePreset({personal:10,mat:45,"miljö":10,aktiviteter:8,"nöjdhet":12,inflytande:8,"vård":7,"hälsa":0}),
-  "Fokus miljö": makePreset({personal:10,mat:8,"miljö":45,aktiviteter:10,"nöjdhet":12,inflytande:8,"vård":7,"hälsa":0}),
-  "Fokus inflytande": makePreset({personal:10,mat:7,"miljö":8,aktiviteter:7,"nöjdhet":12,inflytande:45,"vård":11,"hälsa":0}),
-  "Fokus vård": makePreset({personal:10,mat:7,"miljö":8,aktiviteter:7,"nöjdhet":12,inflytande:11,"vård":45,"hälsa":0}),
+  "Rekommenderad": (() => { const w = {}; const rest = 65 / (QUESTIONS.length - 1); for (const q of QUESTIONS) w[q] = q === "nöjd_sammantaget" ? 35 : rest; return w; })(),
+  "Jämn": (() => { const w = {}; for (const q of QUESTIONS) w[q] = EQ; return w; })(),
+  "Domänbalans": makePreset({personal:100/ND,mat:100/ND,"miljö":100/ND,aktiviteter:100/ND,"nöjdhet":100/ND,inflytande:100/ND,"vård":100/ND,"hälsa":100/ND}),
+  "Fokus personal": makePreset({personal:45,mat:7,"miljö":8,aktiviteter:6,"nöjdhet":10,inflytande:8,"vård":8,"hälsa":8}),
+  "Fokus mat": makePreset({personal:8,mat:45,"miljö":8,aktiviteter:6,"nöjdhet":10,inflytande:8,"vård":7,"hälsa":8}),
+  "Fokus miljö": makePreset({personal:8,mat:7,"miljö":45,aktiviteter:8,"nöjdhet":10,inflytande:7,"vård":7,"hälsa":8}),
+  "Fokus inflytande": makePreset({personal:8,mat:6,"miljö":7,aktiviteter:6,"nöjdhet":10,inflytande:45,"vård":10,"hälsa":8}),
+  "Fokus vård": makePreset({personal:8,mat:6,"miljö":7,aktiviteter:6,"nöjdhet":10,inflytande:10,"vård":45,"hälsa":8}),
+  "Fokus hälsa": makePreset({personal:8,mat:6,"miljö":7,aktiviteter:6,"nöjdhet":10,inflytande:8,"vård":10,"hälsa":45}),
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -583,7 +581,7 @@ function recalculate() {
       trend = diff > 0.2 ? "\u2191" : diff < -0.2 ? "\u2193" : "\u2192";
     }
     const domEwma = {};
-    for (const d of [...DOMAIN_ORDER, HALSA_DOMAIN]) {
+    for (const d of DOMAIN_ORDER) {
       const dVals = validYears.map(y => zScores[home.id][y]._dom?.[d]);
       let dWS = 0, dVS = 0;
       for (let i = 0; i < validYears.length; i++) {
@@ -626,7 +624,7 @@ function recalculate() {
     r.displayScore = r.ewma * avgStd + avgMean;
     r.displayLcb = r.lcb * avgStd + avgMean;
     r.domainDisplay = {};
-    for (const d of [...DOMAIN_ORDER, HALSA_DOMAIN]) {
+    for (const d of DOMAIN_ORDER) {
       const qs = DOMAINS[d];
       const dM = qs.reduce((a, q) => a + (refStats[q]?.mean || 50), 0) / qs.length;
       const dS = qs.reduce((a, q) => a + (refStats[q]?.std || 10), 0) / qs.length;
@@ -832,11 +830,11 @@ function renderDetailPanel(r) {
   html += '<div class="detail-chart"><h4>Utveckling över tid</h4><canvas id="chartTimeSeries"></canvas></div>';
   html += '<div class="detail-chart"><h4>Domänprofil</h4><canvas id="chartRadar"></canvas></div>';
   html += '<div class="detail-chart"><h4>Frågepoäng</h4><div class="domain-bars">';
-  for (const d of [...DOMAIN_ORDER, HALSA_DOMAIN]) {
+  for (const d of DOMAIN_ORDER) {
     const domQs = DOMAINS[d];
     const anyVal = domQs.some(q => r.questionDisplay[q] != null);
     if (!anyVal) continue;
-    html += '<div style="font-size:0.7rem;font-weight:700;color:'+(d===HALSA_DOMAIN?'#9e9e9e':'#999')+';text-transform:uppercase;letter-spacing:0.03em;margin-top:0.5rem;margin-bottom:0.2rem">' + DOMAIN_NAMES[d] + '</div>';
+    html += '<div style="font-size:0.7rem;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.03em;margin-top:0.5rem;margin-bottom:0.2rem">' + DOMAIN_NAMES[d] + '</div>';
     for (const q of domQs) {
       const val = r.questionDisplay[q];
       if (val == null) continue;
@@ -921,26 +919,6 @@ function buildWeightSliders(container) {
       container.appendChild(div);
     }
   }
-  // Hälsa section (0% default, always visible)
-  const halsaHdr = document.createElement("div");
-  halsaHdr.className = "weight-domain-header";
-  halsaHdr.style.color = "#9e9e9e";
-  halsaHdr.textContent = DOMAIN_NAMES[HALSA_DOMAIN];
-  container.appendChild(halsaHdr);
-  const halsaWrap = document.createElement("div");
-  halsaWrap.id = "halsaWrap";
-  for (const q of DOMAINS[HALSA_DOMAIN]) {
-    const div = document.createElement("div");
-    div.className = "weight-group";
-    div.innerHTML = '<div class="weight-label"><span>' + Q_NAMES[q] +
-      '</span><span id="wval-' + q + '">' + state.weights[q].toFixed(1) +
-      '%</span></div><input type="range" class="weight-slider" min="0" max="100" ' +
-      'value="' + state.weights[q].toFixed(1) + '" step="any" data-q="' + q +
-      '" oninput="onWeightInput(\'' + q + '\',this.value)" ' +
-      'onmousedown="onWeightDragStart(\'' + q + '\')" ontouchstart="onWeightDragStart(\'' + q + '\')">';
-    halsaWrap.appendChild(div);
-  }
-  container.appendChild(halsaWrap);
 }
 
 function buildPresets(container) {
@@ -1170,16 +1148,6 @@ function toggleSettings() {
         '" oninput="onWeightInput(\'' + q + '\',this.value)" ' +
         'onmousedown="onWeightDragStart(\'' + q + '\')" ontouchstart="onWeightDragStart(\'' + q + '\')"></div>';
     }
-  }
-  // Hälsa section
-  html += '<div class="weight-domain-header" style="color:#9e9e9e">' + DOMAIN_NAMES[HALSA_DOMAIN] + "</div>";
-  for (const q of DOMAINS[HALSA_DOMAIN]) {
-    html += '<div class="weight-group"><div class="weight-label"><span>' + Q_NAMES[q] +
-      '</span><span id="bswval-' + q + '">' + state.weights[q].toFixed(1) +
-      '%</span></div><input type="range" class="weight-slider" min="0" max="100" value="' +
-      state.weights[q].toFixed(1) + '" step="any" data-q="' + q +
-      '" oninput="onWeightInput(\'' + q + '\',this.value)" ' +
-      'onmousedown="onWeightDragStart(\'' + q + '\')" ontouchstart="onWeightDragStart(\'' + q + '\')"></div>';
   }
   html += '<div class="presets" style="margin:0.6rem 0 1rem">';
   for (const name of Object.keys(PRESETS)) {
